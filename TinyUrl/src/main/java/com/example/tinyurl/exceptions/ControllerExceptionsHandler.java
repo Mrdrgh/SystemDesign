@@ -11,8 +11,13 @@ import java.util.Map;
 @ResponseBody
 public class ControllerExceptionsHandler {
 
-    @ExceptionHandler({ UrlNotFoundException.class, Exception.class })
+    @ExceptionHandler({ UrlNotFoundException.class })
     public ResponseEntity<Map<String, String>> handle(Exception e) {
         return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler({ RateLimitExceededException.class })
+    public ResponseEntity<Map<String, String>> handleTooManyRequests(RateLimitExceededException e) {
+        return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.TOO_MANY_REQUESTS);
     }
 }

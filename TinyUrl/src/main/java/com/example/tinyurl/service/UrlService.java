@@ -1,5 +1,6 @@
 package com.example.tinyurl.service;
 
+import org.slf4j.Logger;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -8,12 +9,14 @@ import com.example.tinyurl.entity.User;
 import com.example.tinyurl.exceptions.UrlNotFoundException;
 import com.example.tinyurl.Repository.*;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.*;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class UrlService {
     private final StringRedisTemplate stringRedisTemplate;
     private final UrlRepository urlRepository;
@@ -58,6 +61,7 @@ public class UrlService {
         if (cachedLongUrl != null) {
             // cache hit
             stringRedisTemplate.opsForValue().increment(visitsKey);
+            log.info("retrieved long url : " + cachedLongUrl + "from cache");
             return cachedLongUrl;
         }
 
