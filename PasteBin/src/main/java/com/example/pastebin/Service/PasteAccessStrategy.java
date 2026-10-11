@@ -4,10 +4,10 @@ import java.nio.file.AccessDeniedException;
 
 import com.example.pastebin.Entity.Paste;
 
-import com.example.pastebin.Enum.AcessType;
+import com.example.pastebin.Enum.AccessType;
 
 public interface PasteAccessStrategy {
-    AcessType getSupportedAcessType();
+    AccessType getSupportedAcessType();
 
     void validateAccess(Paste paste, AccessContext context);
 }

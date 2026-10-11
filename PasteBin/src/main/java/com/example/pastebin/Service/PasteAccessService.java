@@ -7,11 +7,14 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 import com.example.pastebin.Entity.Paste;
-import com.example.pastebin.Enum.AcessType;
+import com.example.pastebin.Enum.AccessType;
+
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
 @Service
 public class PasteAccessService {
-    private final Map<AcessType, PasteAccessStrategy> strategies;
+    private final Map<AccessType, PasteAccessStrategy> strategies;
 
     public PasteAccessService(List<PasteAccessStrategy> strategyList) {
         this.strategies = strategyList.stream()

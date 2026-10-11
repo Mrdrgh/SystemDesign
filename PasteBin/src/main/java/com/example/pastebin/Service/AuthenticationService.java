@@ -44,7 +44,7 @@ public class AuthenticationService {
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(login.getUsername(), login.getPassword()));
 
         // if we reach this line the user is valid and no exception was thrown (AuthenticationException) by the auth manager
-        User user = userRepository.findUserByUsername(login.getUsername()).orElseThrow(() -> new RuntimeException("user was "))
+        User user = userRepository.findUserByUsername(login.getUsername()).orElseThrow(() -> new RuntimeException("user was not found"));
 
         // issue a jwt badge for the authenticated user
         String jwtToken = jwtService.generateToken(user);
