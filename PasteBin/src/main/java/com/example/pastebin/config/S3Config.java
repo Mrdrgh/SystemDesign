@@ -9,9 +9,10 @@ import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-@Configuration 
+@Configuration
 public class S3Config {
     @Value("${minio.access-key:minioadmin}")
     private String accessKey;
@@ -25,11 +26,25 @@ public class S3Config {
     @Bean
     public S3Presigner s3Presigner() {
         AwsBasicCredentials credentials = AwsBasicCredentials.builder()
-                                            .accessKeyId(accessKey)
-                                            .secretAccessKey(secretKey)
-                                            .build();
+                .accessKeyId(accessKey)
+                .secretAccessKey(secretKey)
+                .build();
 
         return S3Presigner.builder()
+                .endpointOverride(URI.create(endpoint))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                .region(Region.EU_WEST_1)
+                .build();
+    }
+
+    @Bean
+    public S3Client S3Client() {
+        AwsBasicCredentials credentials = AwsBasicCredentials.builder()
+                .accessKeyId(accessKey)
+                .secretAccessKey(secretKey)
+                .build();
+
+        return S3Client.builder()
                 .endpointOverride(URI.create(endpoint))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .region(Region.EU_WEST_1)
