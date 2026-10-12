@@ -1,5 +1,6 @@
 package com.example.pastebin.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
@@ -14,16 +15,19 @@ import org.springframework.stereotype.Service;
 
 import com.example.pastebin.Exception.PasteNotAvailableException;
 import com.example.pastebin.Entity.*;
+import com.example.pastebin.Enum.AccessType;
 import com.example.pastebin.Enum.PasteStatus;
 import com.example.pastebin.repository.PasteRepository;
 import com.example.pastebin.repository.UserRepository;
 import com.example.pastebin.Exception.MaximumFileSizeException;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.ObjectMapper;
 import com.example.pastebin.Dto.*;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class PasteService {
     @Value("${paste.max-size-in-bytes:1000000}")
@@ -37,10 +41,12 @@ public class PasteService {
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
 
-    public PasteDto create(PasteDto paste) {
-        if (paste.getSize() == null || paste.getSize() <= 0 || paste.getSize() > maxPasteSize) {
+    public PasteCreationResponseDto create(PasteCreationRequestDto paste) {
+        if (paste.getSizeInBytes() == null || paste.getSizeInBytes() <= 0 || paste.getSizeInBytes() > maxPasteSize) {
+            log.info("paste Size: " + paste.getSizeInBytes() + " max size : " + maxPasteSize);
+
             throw new MaximumFileSizeException(
-                    "invalid size, maximum paste size is of " + maxPasteSize / 1024 + " KB exceeded");
+                    "invalid size, maximum paste size is of " + maxPasteSize / 1024 + " KB");
         }
         User creator = userRepository
                 .findUserByUsername(SecurityContextHolder.getContext().getAuthentication().getName())
@@ -52,21 +58,21 @@ public class PasteService {
             url = keyGenService.Md5generate();
         }
 
+        log.info("url is " + url);
+
         Paste new_paste = Paste.builder()
-                .accessType(paste.getAccessType())
+                .accessType(AccessType.valueOf(paste.getAccessType()))
                 .creator(creator)
                 .passwordHash(paste.getPassword() == null ? null : passwordEncoder.encode(paste.getPassword()))
                 .title(paste.getTitle())
-                .expiration(paste.getExpiration())
+                .expiration(Duration.ofMinutes(paste.getExpirationInMinutes()))
                 .url(url)
                 .authorizedUsers(paste.getAuthorizedUsers())
                 .build();
         PasteRepository.save(new_paste);
 
-        String uploadUrl = s3Service.generateUploadUrl(url, paste.getSize());
-        paste.setS3url(uploadUrl);
-
-        return paste;
+        String uploadUrl = s3Service.generateUploadUrl(url, paste.getSizeInBytes());
+        return PasteCreationResponseDto.builder().url(url).s3url(uploadUrl).build();
     }
 
     @SneakyThrows
@@ -153,5 +159,14 @@ public class PasteService {
                 .url(paste.getUrl())
                 .id(paste.getId())
                 .build();
+    }
+
+    @Scheduled(cron = "0 0 0 * * *")
+    public void expireObsoletePastes() {
+        int count = PasteRepository.updateObsoletePastesStatus(
+                PasteStatus.EXPIRED,
+                PasteStatus.UPLOAD_PENDING,
+                LocalDateTime.now().minusMinutes(5));
+        log.info("found " + count + " obsolete abandonned pending pastes and expired them");
     }
 }

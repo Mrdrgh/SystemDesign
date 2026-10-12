@@ -16,7 +16,7 @@ public class KeyGenService {
     public int length;
 
     public String UUIDgenerate() {
-        return UUID.randomUUID().toString().substring(length);
+        return UUID.randomUUID().toString().replace("-", "").substring(0, length);
     }
 
     public String Md5generate() {
@@ -27,9 +27,8 @@ public class KeyGenService {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] digest = md.digest(seed);
 
-            return HexFormat.of().formatHex(digest);
-        }
-        catch (NoSuchAlgorithmException e) {
+            return HexFormat.of().formatHex(digest).substring(0, length);
+        } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("Exception during the keygen process: " + e.getMessage());
         }
     }

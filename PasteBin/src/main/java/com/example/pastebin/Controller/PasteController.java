@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.pastebin.Dto.PasteCreationRequestDto;
+import com.example.pastebin.Dto.PasteCreationResponseDto;
 import com.example.pastebin.Dto.PasteDto;
 import com.example.pastebin.Entity.User;
 import com.example.pastebin.Service.*;
@@ -24,13 +26,14 @@ public class PasteController {
     private final PasteService pasteService;
 
     @PostMapping("/create")
-    public ResponseEntity<PasteDto> createPaste(@RequestBody PasteDto pasteDto) {
-        PasteDto signedPaste = pasteService.create(pasteDto);
+    public ResponseEntity<PasteCreationResponseDto> createPaste(@RequestBody PasteCreationRequestDto pasteDto) {
+        PasteCreationResponseDto signedPaste = pasteService.create(pasteDto);
         return ResponseEntity.ok(signedPaste);
     }
 
     @GetMapping("/{url}")
-    public ResponseEntity<PasteDto> getPaste(@PathVariable String url, @RequestParam(required = false) String password, @AuthenticationPrincipal User currentUser) {
+    public ResponseEntity<PasteDto> getPaste(@PathVariable String url, @RequestParam(required = false) String password,
+            @AuthenticationPrincipal User currentUser) {
         PasteDto pasteDto = pasteService.get(url, password, currentUser);
         return ResponseEntity.ok(pasteDto);
     }

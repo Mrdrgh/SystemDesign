@@ -4,7 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
+import org.springframework.security.core.AuthenticationException;
 import com.example.pastebin.Dto.ExceptionDto;
 
 import lombok.extern.slf4j.Slf4j;
@@ -22,8 +22,8 @@ public class ControllerExceptionsHandler {
                         .build());
     }
 
-    @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<ExceptionDto> handleUnauthorizedException(UnauthorizedException e) {
+    @ExceptionHandler({ UnauthorizedException.class, AuthenticationException.class })
+    public ResponseEntity<ExceptionDto> handleUnauthorizedException(Exception e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ExceptionDto.builder()
                         .status(HttpStatus.FORBIDDEN.value())
@@ -49,13 +49,23 @@ public class ControllerExceptionsHandler {
                         .build());
     }
 
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ExceptionDto> handleRateLimitExceptin(RateLimitExceededException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ExceptionDto.builder().status(HttpStatus.TOO_MANY_REQUESTS.value())
+                        .message(e.getMessage()).build());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ExceptionDto> handleGenericException(Exception e) {
         log.error(e.getMessage());
+        log.error("stack trace : ");
+        e.printStackTrace();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ExceptionDto.builder()
                         .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                         .message("An unexpected error occurred")
                         .build());
     }
+
 }

@@ -32,6 +32,7 @@ public class Paste {
     private Duration expiration;
 
     @Builder.Default
+    @Column(name = "read_count")
     private Long reads = 0L;
 
     @CreationTimestamp
@@ -52,7 +53,8 @@ public class Paste {
     private String passwordHash;
 
     @ElementCollection
-    @JoinTable(name = "paste_authorized_users", joinColumns = @JoinColumn(name = "paste_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    @CollectionTable(name = "paste_authorized_users", joinColumns = @JoinColumn(name = "paste_id"))
+    @Column(name = "username")
     @Default
     private Set<String> authorizedUsers = new HashSet<>();
 }

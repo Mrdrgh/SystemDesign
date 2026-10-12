@@ -29,4 +29,9 @@ public class AuthController {
     public ResponseEntity<AuthResponseDto> login(@RequestBody LoginRequestDto req) {
         return ResponseEntity.ok(authenticationService.login(req));
     }
+
+    @PostMapping("/me")
+    public ResponseEntity<String> imIAuthenticated() {
+        return ResponseEntity.ok("yes");
+    }
 }

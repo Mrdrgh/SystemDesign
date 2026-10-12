@@ -17,7 +17,7 @@ import java.util.*;
 @Service
 public class JwtService {
 
-    @Value("${jwt.secret:random-secret-key-te-sign-with-32bits}")
+    @Value("${jwt.secret}")
     private String secret;
 
     public String generateToken(UserDetails userDetails) {
