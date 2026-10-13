@@ -2,16 +2,17 @@ package com.example.pastebin.Service.impl;
 
 import org.springframework.stereotype.Component;
 
-import com.example.pastebin.Enum.AcessType;
+import com.example.pastebin.Enum.AccessType;
 import com.example.pastebin.Service.AccessContext;
 import com.example.pastebin.Service.PasteAccessStrategy;
 import com.example.pastebin.Entity.*;
+import com.example.pastebin.Exception.UnauthorizedException;
 
 @Component
 public class RestrictedUsersAcessStrategy implements PasteAccessStrategy {
     @Override
-    public AcessType getSupportedAcessType() {
-        return AcessType.ACCESS_LIST;
+    public AccessType getSupportedAcessType() {
+        return AccessType.ACCESS_LIST;
     }
 
     @Override
@@ -22,7 +23,7 @@ public class RestrictedUsersAcessStrategy implements PasteAccessStrategy {
         }
 
         boolean isCreator = paste.getCreator() != null && paste.getCreator().getId().equals(user.getId());
-        boolean isAuthorized = paste.getAuthorizedUsers().stream().anyMatch(u -> u.getId().equals(user.getId()));
+        boolean isAuthorized = paste.getAuthorizedUsers().stream().anyMatch(u -> u.equals(user.getUsername()));
 
         if (!isCreator && !isAuthorized) {
             throw new UnauthorizedException("Unauthorized");

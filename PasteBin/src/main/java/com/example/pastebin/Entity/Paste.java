@@ -7,7 +7,8 @@ import java.util.*;
 
 import org.hibernate.annotations.CreationTimestamp;
 
-import com.example.pastebin.Enum.AcessType;
+import com.example.pastebin.Enum.AccessType;
+import com.example.pastebin.Enum.PasteStatus;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -27,10 +28,11 @@ public class Paste {
 
     @Column(nullable = false, unique = true, length = 16)
     private String url;
-    private String s3Url;
+
     private Duration expiration;
 
     @Builder.Default
+    @Column(name = "read_count")
     private Long reads = 0L;
 
     @CreationTimestamp
@@ -42,12 +44,17 @@ public class Paste {
 
     @Enumerated(EnumType.STRING)
     @Default
-    private AcessType accessType = AcessType.PUBLIC;
+    private AccessType accessType = AccessType.PUBLIC;
+
+    @Enumerated(EnumType.STRING)
+    @Default
+    private PasteStatus pasteStatus = PasteStatus.UPLOAD_PENDING;
 
     private String passwordHash;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "paste_authorized_users", joinColumns = @JoinColumn(name = "paste_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    @ElementCollection
+    @CollectionTable(name = "paste_authorized_users", joinColumns = @JoinColumn(name = "paste_id"))
+    @Column(name = "username")
     @Default
-    private Set<User> authorizedUsers = new HashSet<>();
+    private Set<String> authorizedUsers = new HashSet<>();
 }
