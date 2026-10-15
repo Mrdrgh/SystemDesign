@@ -67,7 +67,7 @@ flowchart TB
     end
 
     subgraph StorageLayer["Data & Caching Tier"]
-        RedisCache[("Redis (In-Memory Tier)\nurl:{shortUrl} -> longUrl (24h TTL)\nvisits:{shortUrl} -> Atomic Counter")]
+        RedisCache[("Redis (In-Memory Tier)\nurl:shortUrl -> longUrl (24h TTL)\nvisits:shortUrl -> Atomic Counter")]
         MySQL[("MySQL 8.0\nTables: url, user")]
     end
 
@@ -82,9 +82,9 @@ flowchart TB
     UrlService -->|2. Persist URL Mapping| MySQL
 
     %% Redirection Flow
-    UrlService -->|3. Check Cache: url:{shortUrl}| RedisCache
+    UrlService -->|3. Check Cache: url:shortUrl| RedisCache
     RedisCache -.->|Cache Hit: return longUrl| UrlService
-    UrlService -->|4. Increment: visits:{shortUrl}| RedisCache
+    UrlService -->|4. Increment: visits:shortUrl| RedisCache
     UrlService -.->|Cache Miss: Query DB & Populate Cache| MySQL
 
     %% Write-Behind Sync
