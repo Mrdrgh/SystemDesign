@@ -114,6 +114,12 @@ flowchart TB
 
 The application implements a stateless **Spring Security 6+** filter pipeline. Below is the complete class diagram matching the design in [docs/diagrams/spring-security-architecture.svg](docs/diagrams/spring-security-architecture.svg) and [docs/diagrams/spring-security-architecture.excalidraw](docs/diagrams/spring-security-architecture.excalidraw):
 
+<p align="center">
+  <img src="docs/diagrams/spring-security-architecture.svg" alt="Spring Security Architecture Diagram" width="100%" />
+</p>
+
+### Interactive Security Class Diagram (Mermaid)
+
 ```mermaid
 classDiagram
     direction TB
@@ -341,7 +347,7 @@ sequenceDiagram
 
 ## 📂 Repository Structure
 
-```
+```text
 PasteBin/
 ├── .env.example                               # Infrastructure environment template
 ├── docker-compose.yml                         # Containerized MySQL, Redis, MinIO, mc, & Worker
@@ -612,6 +618,10 @@ The service features centralized error handling via `@RestControllerAdvice` (`Co
 ---
 
 ## 🎨 Architecture Diagrams & Excalidraw Assets
+
+<p align="center">
+  <img src="docs/diagrams/spring-security-architecture.svg" alt="Spring Security Architecture Preview" width="100%" />
+</p>
 
 The architectural diagrams are available in both vector format and native Excalidraw format:
 

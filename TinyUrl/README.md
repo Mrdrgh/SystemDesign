@@ -42,27 +42,33 @@ Engineered for ultra-low redirection latency, this system implements **read-thro
 
 Below is the complete system design matching the architectural blueprint in [docs/diagrams/tinyurl-system-design.svg](docs/diagrams/tinyurl-system-design.svg) and [docs/diagrams/tinyurl-system-design.excalidraw](docs/diagrams/tinyurl-system-design.excalidraw):
 
-`mermaid
+<p align="center">
+  <img src="docs/diagrams/tinyurl-system-design.svg" alt="TinyURL System Architecture Diagram" width="100%" />
+</p>
+
+### Interactive Component Flowchart (Mermaid)
+
+```mermaid
 flowchart TB
-    subgraph Clients[Clients & Traffic]
-        User[User / HTTP Client]
+    subgraph Clients["Clients & Traffic"]
+        User["User / HTTP Client"]
     end
 
-    subgraph Interceptors[Spring MVC HandlerInterceptor Layer]
-        RateLimit[RateLimitInterceptor\n(Bucket4j Token Bucket per IP)]
-        PerfLimit[PerformanceInterceptor\n(Latency Stopwatch & Logging)]
+    subgraph Interceptors["Spring MVC HandlerInterceptor Layer"]
+        RateLimit["RateLimitInterceptor\n(Bucket4j Token Bucket per IP)"]
+        PerfLimit["PerformanceInterceptor\n(Latency Stopwatch & Logging)"]
     end
 
-    subgraph AppServer[TinyURL Core Service (:8080)]
-        UrlController[UrlController\n(POST /, GET /{short-url}, GET /{short-url}/stats)]
-        UrlService[UrlService\n(Core Business Logic & Caching Coordinator)]
-        EncodingService[EncodingService\n(UUID / SHA-256 Short Token Generator)]
-        FlushScheduler[VisitsFlushScheduler\n(@Scheduled fixedRate = 60s)]
+    subgraph AppServer["TinyURL Core Service (:8080)"]
+        UrlController["UrlController\n(POST /, GET /{short-url}, GET /{short-url}/stats)"]
+        UrlService["UrlService\n(Core Business Logic & Caching Coordinator)"]
+        EncodingService["EncodingService\n(UUID / SHA-256 Short Token Generator)"]
+        FlushScheduler["VisitsFlushScheduler\n(@Scheduled fixedRate = 60s)"]
     end
 
-    subgraph StorageLayer[Data & Caching Tier]
-        RedisCache[(Redis (In-Memory Tier)\nurl:{shortUrl} -> longUrl (24h TTL)\nvisits:{shortUrl} -> Atomic Counter)]
-        MySQL[(MySQL 8.0\nTables: url, user)]
+    subgraph StorageLayer["Data & Caching Tier"]
+        RedisCache[("Redis (In-Memory Tier)\nurl:{shortUrl} -> longUrl (24h TTL)\nvisits:{shortUrl} -> Atomic Counter")]
+        MySQL[("MySQL 8.0\nTables: url, user")]
     end
 
     %% Flows
@@ -85,7 +91,7 @@ flowchart TB
     FlushScheduler -->|5. Scan & Atomically getAndDelete visits:*| RedisCache
     FlushScheduler -->|6. Batch Update Total Visits in DB| MySQL
     UrlService -->|On-Demand Stats Flush| RedisCache
-`
+```
 
 ---
 
@@ -93,9 +99,9 @@ flowchart TB
 
 ### Functional Requirements
 1. **URL Shortening**: Users input any valid HTTP/HTTPS URL and receive an 8-character shortened URL.
-2. **Instant Redirection**: Accessing GET /{short-url} immediately issues an **HTTP 302 Found** redirect to the original long URL.
+2. **Instant Redirection**: Accessing `GET /{short-url}` immediately issues an **HTTP 302 Found** redirect to the original long URL.
 3. **Idempotent Link Deduplication**: If an authenticated creator submits an already registered long URL, the service returns the existing short link instead of creating duplicate records.
-4. **Usage Statistics**: Creators can retrieve metadata, registration timestamps, and aggregated visit counts via GET /{short-url}/stats.
+4. **Usage Statistics**: Creators can retrieve metadata, registration timestamps, and aggregated visit counts via `GET /{short-url}/stats`.
 
 ### Non-Functional Requirements
 1. **Low-Latency Redirection**: Sub-millisecond response times for hot links utilizing Redis in-memory storage.
@@ -108,107 +114,107 @@ flowchart TB
 
 ## 🗄 Core Entities & Data Models
 
-`mermaid
+```mermaid
 erDiagram
-    USER ||--o{ URL : creates
+    USER ||--o{ URL : "creates"
     
     USER {
-        Long id PK Auto-increment ID
-        String email UK Unique Creator Email
+        Long id PK "Auto-increment ID"
+        String email UK "Unique Creator Email"
     }
 
     URL {
-        Long id PK Auto-increment ID
-        String shortUrl UK Unique 8-char short code
-        String longUrl UK Original destination URL
-        Long visits Aggregated total click count
-        LocalDateTime createdAt Creation timestamp
-        Long creator FK Foreign key to USER(id)
+        Long id PK "Auto-increment ID"
+        String shortUrl UK "Unique 8-char short code"
+        String longUrl UK "Original destination URL"
+        Long visits "Aggregated total click count"
+        LocalDateTime createdAt "Creation timestamp"
+        Long creator FK "Foreign key to USER(id)"
     }
-`
+```
 
 ### Table Schema Breakdown:
-- **user**:
-  - id: Primary Key (AUTO_INCREMENT).
-  - email: Creator identifier (Unique, Indexed).
-- **url**:
-  - id: Primary Key (AUTO_INCREMENT).
-  - short_url: The unique 8-character token (Unique, Indexed for instant lookups).
-  - long_url: The target destination URL (Unique).
-  - creator: Foreign Key linking to user(id) (Nullable for anonymous pastes).
-  - created_at: Auto-populated Hibernate @CreationTimestamp.
-  - isits: Total lifetime redirects (Persisted from Redis batches).
+- **`user`**:
+  - `id`: Primary Key (AUTO_INCREMENT).
+  - `email`: Creator identifier (Unique, Indexed).
+- **`url`**:
+  - `id`: Primary Key (AUTO_INCREMENT).
+  - `short_url`: The unique 8-character token (Unique, Indexed for instant lookups).
+  - `long_url`: The target destination URL (Unique).
+  - `creator`: Foreign Key linking to `user(id)` (Nullable for anonymous pastes).
+  - `created_at`: Auto-populated Hibernate `@CreationTimestamp`.
+  - `visits`: Total lifetime redirects (Persisted from Redis batches).
 
 ---
 
 ## 🚀 Key Architectural Highlights & Patterns
 
 ### 1. Two-Tier HandlerInterceptor Pipeline
-All incoming HTTP requests pass through an ordered Spring HandlerInterceptor chain configured in WebConfig:
+All incoming HTTP requests pass through an ordered Spring `HandlerInterceptor` chain configured in `WebConfig`:
 
-`mermaid
+```mermaid
 flowchart LR
-    Request[Incoming HTTP Request] --> RateLimit[1. RateLimitInterceptor\n(tryConsume clientIp)]
-    RateLimit -->|Exceeded| Error429[429 Too Many Requests\nRateLimitExceededException]
-    RateLimit -->|Allowed| Perf[2. PerformanceInterceptor\n(Record startTime)]
-    Perf --> Controller[UrlController Execution]
-    Controller --> PerfEnd[afterCompletion:\nLog Duration (ms)]
-`
+    Request["Incoming HTTP Request"] --> RateLimit["1. RateLimitInterceptor\n(tryConsume clientIp)"]
+    RateLimit -->|Exceeded| Error429["429 Too Many Requests\nRateLimitExceededException"]
+    RateLimit -->|Allowed| Perf["2. PerformanceInterceptor\n(Record startTime)"]
+    Perf --> Controller["UrlController Execution"]
+    Controller --> PerfEnd["afterCompletion:\nLog Duration (ms)"]
+```
 
-- **RateLimitInterceptor**:
-  - Extracts the real client IP, inspecting X-Forwarded-For for proxies or falling back to RemoteAddr.
-  - Probes a Bucket4j token bucket (5 tokens capacity, 10-second refill interval).
-  - Throws RateLimitExceededException (HTTP 429) if exhausted.
-- **PerformanceInterceptor**:
-  - Attaches startTime in preHandle and computes total duration in fterCompletion.
-  - Emits structured execution logs (e.g., 	he request GET:/8f3a9bc1 took: 2ms).
+- **`RateLimitInterceptor`**:
+  - Extracts the real client IP, inspecting `X-Forwarded-For` for proxies or falling back to `RemoteAddr`.
+  - Probes a `Bucket4j` token bucket (5 tokens capacity, 10-second refill interval).
+  - Throws `RateLimitExceededException` (HTTP 429) if exhausted.
+- **`PerformanceInterceptor`**:
+  - Attaches `startTime` in `preHandle` and computes total duration in `afterCompletion`.
+  - Emits structured execution logs (e.g., `the request GET:/8f3a9bc1 took: 2ms`).
 
 ---
 
 ### 2. Sub-Millisecond Redirection with Read-Through Redis Caching
 To adhere to the **Pareto Principle (80/20 Rule)** where a small subset of URLs drives the overwhelming majority of traffic:
-1. When GET /{short-url} is called, UrlService queries Redis key url:{shortUrl}.
-2. **Cache Hit**: Returns longUrl directly from Redis in **< 1ms**.
-3. **Cache Miss**: Queries MySQL, caches the result in Redis with a **24-hour expiration** (Duration.ofDays(1)), and returns the redirect.
-4. **404 Handling**: If not found in cache or DB, throws UrlNotFoundException (HTTP 404).
+1. When `GET /{short-url}` is called, `UrlService` queries Redis key `url:{shortUrl}`.
+2. **Cache Hit**: Returns `longUrl` directly from Redis in **< 1ms**.
+3. **Cache Miss**: Queries MySQL, caches the result in Redis with a **24-hour expiration** (`Duration.ofDays(1)`), and returns the redirect.
+4. **404 Handling**: If not found in cache or DB, throws `UrlNotFoundException` (HTTP 404).
 
 ---
 
 ### 3. Write-Behind Atomic Visit Tracking
 Writing click counts directly to a relational database on every redirect causes row-level write contention and locks under heavy traffic. TinyURL solves this with a **Write-Behind Pattern**:
 1. During redirection, Redis atomically increments:
-   `	ext
+   ```text
    INCR visits:{shortUrl}
-   `
-2. **Scheduled Reconciliation (VisitsFlushScheduler)**:
-   - Runs every 60 seconds (@Scheduled(fixedRate = 60000)).
-   - Scans isits:* keys in Redis.
-   - Atomically retrieves and resets the counter using getAndDelete(key).
+   ```
+2. **Scheduled Reconciliation (`VisitsFlushScheduler`)**:
+   - Runs every 60 seconds (`@Scheduled(fixedRate = 60000)`).
+   - Scans `visits:*` keys in Redis.
+   - Atomically retrieves and resets the counter using `getAndDelete(key)`.
    - Performs a single batched update to MySQL:
-     `sql
+     ```sql
      UPDATE url SET visits = visits + :pendingVisits WHERE short_url = :shortUrl;
-     `
-3. **On-Demand Stats Synchronization (indUrl)**:
-   - When a creator queries /api/{short-url}/stats, any pending visits currently buffered in Redis are immediately flushed into MySQL using getAndDelete before returning the latest totals.
+     ```
+3. **On-Demand Stats Synchronization (`findUrl`)**:
+   - When a creator queries `/api/{short-url}/stats`, any pending visits currently buffered in Redis are immediately flushed into MySQL using `getAndDelete` before returning the latest totals.
 
 ---
 
 ### 4. Idempotent Creator URL Deduplication
 When an authenticated creator submits an existing long URL:
-- UrlService.encode checks if the creator already has an entry for longUrl.
-- If found, it returns the existing shortUrl immediately, ensuring zero database pollution and consistent metrics per user.
+- `UrlService.encode` checks if the creator already has an entry for `longUrl`.
+- If found, it returns the existing `shortUrl` immediately, ensuring zero database pollution and consistent metrics per user.
 
 ---
 
 ### 5. Collision-Resistant Encoding Service
 - Generates 8-character cryptographic tokens.
 - Handles collision avoidance:
-  `java
+  ```java
   String shortUrl = encodingService.UuidEncoder();
   while (urlRepository.findUrlByShortUrl(shortUrl).isPresent()) {
       shortUrl = encodingService.UuidEncoder();
   }
-  `
+  ```
 
 ---
 
@@ -216,7 +222,7 @@ When an authenticated creator submits an existing long URL:
 
 ### URL Shortening Lifecycle
 
-`mermaid
+```mermaid
 sequenceDiagram
     autonumber
     actor Client
@@ -226,7 +232,7 @@ sequenceDiagram
     participant Encoding as EncodingService
     participant DB as MySQL Database
 
-    Client->>Interceptor: POST / { long-url: https://..., creator: alex@test.com }
+    Client->>Interceptor: POST / { "long-url": "https://...", "creator": "alex@test.com" }
     Interceptor->>Interceptor: Check Token Bucket Quota (IP)
     Interceptor->>Controller: Allow Request
     Controller->>Service: encode(longUrl, creatorEmail)
@@ -235,7 +241,7 @@ sequenceDiagram
         Service->>DB: Check if Creator already shortened this longUrl
         opt Already Exists
             Service-->>Controller: Return Existing shortUrl
-            Controller-->>Client: 200 OK { short-url: 8f3a9bc1 }
+            Controller-->>Client: 200 OK { "short-url": "8f3a9bc1" }
         end
     end
 
@@ -246,14 +252,14 @@ sequenceDiagram
 
     Service->>DB: INSERT INTO url (short_url, long_url, creator, visits)
     Service-->>Controller: shortUrl
-    Controller-->>Client: 200 OK { short-url: 8f3a9bc1 }
-`
+    Controller-->>Client: 200 OK { "short-url": "8f3a9bc1" }
+```
 
 ---
 
 ### URL Redirection Lifecycle
 
-`mermaid
+```mermaid
 sequenceDiagram
     autonumber
     actor Client
@@ -278,19 +284,19 @@ sequenceDiagram
         else Not Found
             DB-->>Service: Optional.empty()
             Service-->>Controller: null
-            Controller-->>Client: 404 NOT_FOUND { message: no url found }
+            Controller-->>Client: 404 NOT_FOUND { "message": "no url found" }
         end
     end
 
     Service-->>Controller: longUrl
     Controller-->>Client: HTTP 302 FOUND (Location: https://example.com/...)
-`
+```
 
 ---
 
 ### Scheduled Write-Behind Flush Lifecycle
 
-`mermaid
+```mermaid
 sequenceDiagram
     autonumber
     participant Scheduler as VisitsFlushScheduler (@Scheduled 60s)
@@ -305,13 +311,13 @@ sequenceDiagram
         Redis-->>Scheduler: pendingClicks (e.g., 250)
         Scheduler->>DB: UPDATE url SET visits = visits + 250 WHERE short_url = '8f3a9bc1'
     end
-`
+```
 
 ---
 
 ## 📂 Repository Structure
 
-`
+```text
 TinyUrl/
 ├── pom.xml                                    # Spring Boot 4.1.1 + Redis + MySQL + Bucket4j
 ├── mvnw / mvnw.cmd                            # Maven Wrapper scripts
@@ -346,7 +352,7 @@ TinyUrl/
     │   └── resources/
     │       └── application.properties         # Server port, datasource, Redis & rate-limit properties
     └── test/
-`
+```
 
 ---
 
@@ -356,18 +362,18 @@ TinyUrl/
 |---|---|---|
 | **Core Framework** | Java 17, Spring Boot 4.1.1 | Robust enterprise application core |
 | **Relational Storage** | MySQL 8.0, Spring Data JPA | Persistent storage of short links, creators, and clicks |
-| **In-Memory Cache & Counters**| Redis (Lettuce), StringRedisTemplate | Sub-millisecond URL caching & atomic visit counters |
-| **Rate Limiting** | Bucket4j Core (8.10.1) | Token-bucket IP rate limiter in HandlerInterceptor |
-| **Scheduling** | Spring @EnableScheduling | 60s asynchronous write-behind batch flusher |
+| **In-Memory Cache & Counters**| Redis (Lettuce), `StringRedisTemplate` | Sub-millisecond URL caching & atomic visit counters |
+| **Rate Limiting** | Bucket4j Core (8.10.1) | Token-bucket IP rate limiter in `HandlerInterceptor` |
+| **Scheduling** | Spring `@EnableScheduling` | 60s asynchronous write-behind batch flusher |
 | **Build System** | Apache Maven, Lombok | Dependency management & boilerplate elimination |
 
 ---
 
 ## ⚙ Configuration & Environment Properties
 
-Located in src/main/resources/application.properties:
+Located in `src/main/resources/application.properties`:
 
-`properties
+```properties
 spring.application.name=TinyUrl
 server.port=8080
 
@@ -385,7 +391,7 @@ spring.data.redis.port=6379
 # Bucket4j Rate Limiting Configuration
 app.ratelimit.capacity=5
 app.ratelimit.refill-in-seconds=10
-`
+```
 
 ---
 
@@ -393,127 +399,129 @@ app.ratelimit.refill-in-seconds=10
 
 ### Prerequisites
 - **JDK 17+** installed
-- **MySQL 8.0** running on localhost:3306
-- **Redis** running on localhost:6379
+- **MySQL 8.0** running on `localhost:3306`
+- **Redis** running on `localhost:6379`
 
 > 💡 *Quickly spin up MySQL and Redis using Docker:*
-`ash
+```bash
 docker run -d --name tinyurl-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root mysql:8.0
 docker run -d --name tinyurl-redis -p 6379:6379 redis:alpine
-`
+```
 
 ### Run the Application
 
 Using the Maven wrapper:
 
 **On Linux / macOS:**
-`ash
+```bash
 ./mvnw clean spring-boot:run
-`
+```
 
 **On Windows:**
-`powershell
+```powershell
 .\mvnw.cmd clean spring-boot:run
-`
+```
 
-The application will start on port 8080.
+The application will start on port `8080`.
 
 ---
 
 ## 📡 API Reference & Usage Examples
 
-### 1. Shorten a URL (POST /)
+### 1. Shorten a URL (`POST /`)
 
 #### Anonymous Request:
-`ash
+```bash
 curl -X POST http://localhost:8080/ \
-  -H Content-Type: application/json \
+  -H "Content-Type: application/json" \
   -d '{
-    long-url: https://docs.spring.io/spring-boot/docs/current/reference/html/
+    "long-url": "https://docs.spring.io/spring-boot/docs/current/reference/html/"
   }'
-`
+```
 
 *Response (200 OK):*
-`json
+```json
 {
-  short-url: 3a8f1b2c
+  "short-url": "3a8f1b2c"
 }
-`
+```
 
 #### With Creator Attribution:
-`ash
+```bash
 curl -X POST http://localhost:8080/ \
-  -H Content-Type: application/json \
+  -H "Content-Type: application/json" \
   -d '{
-    creator: developer@example.com,
-    long-url: https://github.com/spring-projects/spring-boot
+    "creator": "developer@example.com",
+    "long-url": "https://github.com/spring-projects/spring-boot"
   }'
-`
+```
 
 ---
 
-### 2. Follow Short URL (GET /{short-url})
+### 2. Follow Short URL (`GET /{short-url}`)
 
-`ash
+```bash
 curl -i -X GET http://localhost:8080/3a8f1b2c
-`
+```
 
 *Response (302 Found):*
-`http
+```http
 HTTP/1.1 302 Found
 Location: https://docs.spring.io/spring-boot/docs/current/reference/html/
-`
+```
 
 ---
 
-### 3. Retrieve URL Statistics (GET /{short-url}/stats)
+### 3. Retrieve URL Statistics (`GET /{short-url}/stats`)
 
-`ash
+```bash
 curl -X GET http://localhost:8080/3a8f1b2c/stats \
-  -H Content-Type: application/json \
+  -H "Content-Type: application/json" \
   -d '{
-    email: developer@example.com
+    "email": "developer@example.com"
   }'
-`
+```
 
 *Response (200 OK):*
-`json
+```json
 {
-  id: 1,
-  shortUrl: 3a8f1b2c,
-  longUrl: https://github.com/spring-projects/spring-boot,
-  visits: 1420,
-  createdAt: 2026-10-15T11:40:00
+  "id": 1,
+  "shortUrl": "3a8f1b2c",
+  "longUrl": "https://github.com/spring-projects/spring-boot",
+  "visits": 1420,
+  "createdAt": "2026-10-15T11:40:00"
 }
-`
+```
 
 ---
 
 ## 🛡 Error Handling & Status Codes
 
-Managed centrally via @ControllerAdvice in ControllerExceptionsHandler:
+Managed centrally via `@ControllerAdvice` in `ControllerExceptionsHandler`:
 
 | HTTP Status | Exception Class | Reason |
 |---|---|---|
-| **400 Bad Request** | IllegalArgumentException | long-url parameter missing in request body |
-| **404 Not Found** | UrlNotFoundException | Short URL does not exist in cache or database |
-| **429 Too Many Requests** | RateLimitExceededException | Rate limit quota exceeded (Bucket4j token exhausted) |
+| **400 Bad Request** | `IllegalArgumentException` | `long-url` parameter missing in request body |
+| **404 Not Found** | `UrlNotFoundException` | Short URL does not exist in cache or database |
+| **429 Too Many Requests** | `RateLimitExceededException` | Rate limit quota exceeded (Bucket4j token exhausted) |
 
 ---
 
 ## 🎨 Architecture Diagrams & Excalidraw Assets
+
+<p align="center">
+  <img src="docs/diagrams/tinyurl-system-design.svg" alt="TinyURL Architecture Preview" width="100%" />
+</p>
 
 - **High-Resolution Architecture SVG:** [docs/diagrams/tinyurl-system-design.svg](docs/diagrams/tinyurl-system-design.svg)
 - **Editable Excalidraw Scene File:** [docs/diagrams/tinyurl-system-design.excalidraw](docs/diagrams/tinyurl-system-design.excalidraw)
 
 To edit or customize:
 1. Open [excalidraw.com](https://excalidraw.com).
-2. Drag and drop docs/diagrams/tinyurl-system-design.excalidraw directly onto the canvas.
+2. Drag and drop `docs/diagrams/tinyurl-system-design.excalidraw` directly onto the canvas.
 
 ---
 
 ## 📄 License
 
 This project is licensed under the MIT License - feel free to use and adapt for learning, system design interviews, or production deployments.
-
-
