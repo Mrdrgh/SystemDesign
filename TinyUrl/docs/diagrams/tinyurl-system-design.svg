@@ -1,0 +1,183 @@
+﻿<svg xmlns=http://www.w3.org/2000/svg viewBox=0 0 1600 950 width=1600 height=950 style=background:#0f172a; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;>
+  <defs>
+    <linearGradient id=headerGrad x1=0% y1=0% x2=100% y2=0%>
+      <stop offset=0% stop-color=#38bdf8 />
+      <stop offset=50% stop-color=#818cf8 />
+      <stop offset=100% stop-color=#c084fc />
+    </linearGradient>
+    <linearGradient id=cardGrad x1=0% y1=0% x2=100% y2=100%>
+      <stop offset=0% stop-color=#1e293b />
+      <stop offset=100% stop-color=#0f172a />
+    </linearGradient>
+    <marker id=arrow-sky viewBox=0 0 10 10 refX=9 refY=5 markerWidth=6 markerHeight=6 orient=auto-start-reverse>
+      <path d=M 0 1 L 10 5 L 0 9 z fill=#38bdf8 />
+    </marker>
+    <marker id=arrow-emerald viewBox=0 0 10 10 refX=9 refY=5 markerWidth=6 markerHeight=6 orient=auto-start-reverse>
+      <path d=M 0 1 L 10 5 L 0 9 z fill=#34d399 />
+    </marker>
+    <marker id=arrow-amber viewBox=0 0 10 10 refX=9 refY=5 markerWidth=6 markerHeight=6 orient=auto-start-reverse>
+      <path d=M 0 1 L 10 5 L 0 9 z fill=#fbbf24 />
+    </marker>
+    <marker id=arrow-rose viewBox=0 0 10 10 refX=9 refY=5 markerWidth=6 markerHeight=6 orient=auto-start-reverse>
+      <path d=M 0 1 L 10 5 L 0 9 z fill=#f43f5e />
+    </marker>
+    <filter id=shadow x=-10% y=-10% width=120% height=120%>
+      <feDropShadow dx=0 dy=4 stdDeviation=5 flood-color=#000000 flood-opacity=0.4/>
+    </filter>
+  </defs>
+
+  <!-- Title & Subtitle -->
+  <text x=800 y=45 text-anchor=middle font-size=26 font-weight=800 fill=url(#headerGrad) letter-spacing=1>TINYURL SYSTEM DESIGN &amp; ARCHITECTURE</text>
+  <text x=800 y=72 text-anchor=middle font-size=13 fill=#94a3b8>Decoupled Ingestion, Token-Bucket Rate Limiting, Read-Through Redis Caching, &amp; Scheduled Visit Reconciliation</text>
+
+  <!-- SECTION 1: REQUIREMENTS -->
+  <g transform=translate(30, 100) filter=url(#shadow)>
+    <rect width=280 height=810 rx=8 fill=#1e293b stroke=#38bdf8 stroke-width=1.5/>
+    <rect width=280 height=32 rx=8 fill=#0284c7 fill-opacity=0.2/>
+    <text x=140 y=22 text-anchor=middle font-size=14 font-weight=700 fill=#38bdf8>1. Requirements</text>
+    <line x1=0 y1=32 x2=280 y2=32 stroke=#334155 stroke-width=1/>
+
+    <!-- Functional -->
+    <text x=15 y=60 font-size=12 font-weight=700 fill=#7dd3fc>&#9656; Functional Reqs</text>
+    <text x=15 y=82 font-size=11 fill=#cbd5e1>&#8226; Input long link &amp; get short URL</text>
+    <text x=15 y=102 font-size=11 fill=#cbd5e1>&#8226; Instant HTTP 302 redirection</text>
+    <text x=15 y=122 font-size=11 fill=#cbd5e1>&#8226; One-click short link sharing</text>
+    <text x=15 y=142 font-size=11 fill=#cbd5e1>&#8226; Idempotent user deduplication:</text>
+    <text x=25 y=160 font-size=10 fill=#94a3b8>If creator shortened URL before,</text>
+    <text x=25 y=176 font-size=10 fill=#94a3b8>reuse same short URL</text>
+    <text x=15 y=196 font-size=11 fill=#cbd5e1>&#8226; Real-time click analytics &amp; stats</text>
+
+    <!-- Non-Functional -->
+    <text x=15 y=235 font-size=12 font-weight=700 fill=#a78bfa>&#9656; Non-Functional Reqs</text>
+    <text x=15 y=258 font-size=11 fill=#cbd5e1>&#8226; High Rapidity &amp; Sub-ms latency</text>
+    <text x=15 y=278 font-size=11 fill=#cbd5e1>&#8226; Atomic read counters (Redis INCR)</text>
+    <text x=15 y=298 font-size=11 fill=#cbd5e1>&#8226; Token Bucket Rate Limiting (IP)</text>
+    <text x=15 y=318 font-size=11 fill=#cbd5e1>&#8226; Pareto Principle (80/20 Rule):</text>
+    <text x=25 y=336 font-size=10 fill=#94a3b8>20% popular URLs drive 80% traffic</text>
+    <text x=25 y=352 font-size=10 fill=#94a3b8>Cache top working set in Redis</text>
+    <text x=15 y=375 font-size=11 fill=#cbd5e1>&#8226; Zero Database Contention:</text>
+    <text x=25 y=393 font-size=10 fill=#94a3b8>Write-behind scheduled flushes</text>
+  </g>
+
+  <!-- SECTION 2: CORE ENTITIES -->
+  <g transform=translate(330, 100) filter=url(#shadow)>
+    <rect width=250 height=810 rx=8 fill=#1e293b stroke=#818cf8 stroke-width=1.5/>
+    <rect width=250 height=32 rx=8 fill=#4f46e5 fill-opacity=0.2/>
+    <text x=125 y=22 text-anchor=middle font-size=14 font-weight=700 fill=#818cf8>2. Core Entities</text>
+    <line x1=0 y1=32 x2=250 y2=32 stroke=#334155 stroke-width=1/>
+
+    <!-- Url Entity -->
+    <text x=15 y=60 font-size=13 font-weight=700 fill=#c7d2fe>Url Entity (@Table url)</text>
+    <rect x=15 y=72 width=220 height=150 rx=6 fill=#0f172a stroke=#334155/>
+    <text x=25 y=94 font-size=11 font-family=monospace fill=#cbd5e1>id: Long (PK, AUTO)</text>
+    <text x=25 y=116 font-size=11 font-family=monospace fill=#38bdf8>shortUrl: String (UNIQUE)</text>
+    <text x=25 y=138 font-size=11 font-family=monospace fill=#cbd5e1>longUrl: String (UNIQUE)</text>
+    <text x=25 y=160 font-size=11 font-family=monospace fill=#fbbf24>visits: Long (default 0)</text>
+    <text x=25 y=182 font-size=11 font-family=monospace fill=#a78bfa>creator: User (FK @ManyToOne)</text>
+    <text x=25 y=204 font-size=11 font-family=monospace fill=#94a3b8>createdAt: Timestamp</text>
+
+    <!-- User Entity -->
+    <text x=15 y=260 font-size=13 font-weight=700 fill=#c7d2fe>User Entity (@Table user)</text>
+    <rect x=15 y=272 width=220 height=95 rx=6 fill=#0f172a stroke=#334155/>
+    <text x=25 y=296 font-size=11 font-family=monospace fill=#cbd5e1>id: Long (PK, AUTO)</text>
+    <text x=25 y=318 font-size=11 font-family=monospace fill=#38bdf8>email: String (UNIQUE)</text>
+    <text x=25 y=340 font-size=11 font-family=monospace fill=#a78bfa>urls: List&lt;Url&gt; (@OneToMany)</text>
+  </g>
+
+  <!-- SECTION 3: API GATEWAY & ENDPOINTS -->
+  <g transform=translate(600, 100) filter=url(#shadow)>
+    <rect width=320 height=810 rx=8 fill=#1e293b stroke=#34d399 stroke-width=1.5/>
+    <rect width=320 height=32 rx=8 fill=#059669 fill-opacity=0.2/>
+    <text x=160 y=22 text-anchor=middle font-size=14 font-weight=700 fill=#34d399>3. REST API Contract</text>
+    <line x1=0 y1=32 x2=320 y2=32 stroke=#334155 stroke-width=1/>
+
+    <!-- POST / -->
+    <text x=15 y=60 font-size=12 font-weight=700 fill=#34d399>POST / (Create Short Link)</text>
+    <rect x=15 y=70 width=290 height=110 rx=6 fill=#0f172a stroke=#334155/>
+    <text x=25 y=90 font-size=10 font-family=monospace fill=#94a3b8>Payload:</text>
+    <text x=25 y=106 font-size=10 font-family=monospace fill=#cbd5e1>{long-url: https://example.com/...,</text>
+    <text x=25 y=122 font-size=10 font-family=monospace fill=#cbd5e1> creator: dev@test.com}</text>
+    <text x=25 y=142 font-size=10 font-family=monospace fill=#94a3b8>Response 200 OK:</text>
+    <text x=25 y=158 font-size=10 font-family=monospace fill=#38bdf8>{short-url: 8f3a9bc1}</text>
+
+    <!-- GET /{short-url} -->
+    <text x=15 y=205 font-size=12 font-weight=700 fill=#38bdf8>GET /{short-url} (Redirect)</text>
+    <rect x=15 y=215 width=290 height=95 rx=6 fill=#0f172a stroke=#334155/>
+    <text x=25 y=235 font-size=10 font-family=monospace fill=#94a3b8>If found in Cache or DB:</text>
+    <text x=25 y=253 font-size=10 font-family=monospace fill=#34d399>HTTP 302 FOUND</text>
+    <text x=25 y=271 font-size=10 font-family=monospace fill=#cbd5e1>Location: https://example.com/...</text>
+    <text x=25 y=291 font-size=10 font-family=monospace fill=#f43f5e>Else: 404 NOT_FOUND</text>
+
+    <!-- GET /{short-url}/stats -->
+    <text x=15 y=335 font-size=12 font-weight=700 fill=#fbbf24>GET /{short-url}/stats (Analytics)</text>
+    <rect x=15 y=345 width=290 height=120 rx=6 fill=#0f172a stroke=#334155/>
+    <text x=25 y=365 font-size=10 font-family=monospace fill=#94a3b8>Payload / Params:</text>
+    <text x=25 y=381 font-size=10 font-family=monospace fill=#cbd5e1>{email: dev@test.com}</text>
+    <text x=25 y=401 font-size=10 font-family=monospace fill=#94a3b8>Flushes Redis pending visits to DB</text>
+    <text x=25 y=420 font-size=10 font-family=monospace fill=#94a3b8>Response: Full Url JSON with</text>
+    <text x=25 y=438 font-size=10 font-family=monospace fill=#fbbf24>aggregated visit counts</text>
+  </g>
+
+  <!-- SECTION 4: SYSTEM DESIGN FLOW -->
+  <g transform=translate(940, 100) filter=url(#shadow)>
+    <rect width=630 height=810 rx=8 fill=#1e293b stroke=#f59e0b stroke-width=1.5/>
+    <rect width=630 height=32 rx=8 fill=#d97706 fill-opacity=0.2/>
+    <text x=315 y=22 text-anchor=middle font-size=14 font-weight=700 fill=#f59e0b>4. System Design &amp; Deep Dive Architecture</text>
+    <line x1=0 y1=32 x2=630 y2=32 stroke=#334155 stroke-width=1/>
+
+    <!-- Interceptor Pipeline Box -->
+    <g transform=translate(20, 50)>
+      <rect width=590 height=80 rx=6 fill=#0f172a stroke=#38bdf8 stroke-width=1.2/>
+      <text x=295 y=22 text-anchor=middle font-size=12 font-weight=700 fill=#38bdf8>HandlerInterceptor Pipeline (WebConfig)</text>
+      <text x=15 y=46 font-size=11 fill=#f43f5e>&#9656; RateLimitInterceptor: </text>
+      <text x=170 y=46 font-size=11 fill=#cbd5e1>Bucket4j IP token bucket (5 req / 10 sec window, extracts X-Forwarded-For)</text>
+      <text x=15 y=66 font-size=11 fill=#34d399>&#9656; PerformanceInterceptor: </text>
+      <text x=180 y=66 font-size=11 fill=#cbd5e1>Measures execution time &amp; logs request latency</text>
+    </g>
+
+    <!-- Encoding Service Box -->
+    <g transform=translate(20, 150)>
+      <rect width=280 height=110 rx=6 fill=#0f172a stroke=#818cf8 stroke-width=1.2/>
+      <text x=140 y=24 text-anchor=middle font-size=12 font-weight=700 fill=#818cf8>Encoding Service</text>
+      <text x=15 y=48 font-size=10 font-family=monospace fill=#cbd5e1>&#8226; UUID / Base62 / SHA-256</text>
+      <text x=15 y=68 font-size=10 font-family=monospace fill=#cbd5e1>&#8226; 8-char short URL key</text>
+      <text x=15 y=88 font-size=10 font-family=monospace fill=#fbbf24>&#8226; Collision retry loop in DB</text>
+    </g>
+
+    <!-- Redis Caching Tier Box -->
+    <g transform=translate(320, 150)>
+      <rect width=290 height=110 rx=6 fill=#0f172a stroke=#34d399 stroke-width=1.2/>
+      <text x=145 y=24 text-anchor=middle font-size=12 font-weight=700 fill=#34d399>Redis In-Memory Tier (Mem)</text>
+      <text x=15 y=48 font-size=10 font-family=monospace fill=#cbd5e1>&#8226; url:{shortUrl} -&gt; longUrl (24h TTL)</text>
+      <text x=15 y=68 font-size=10 font-family=monospace fill=#cbd5e1>&#8226; visits:{shortUrl} -&gt; INCR count</text>
+      <text x=15 y=88 font-size=10 font-family=monospace fill=#38bdf8>&#8226; 80% traffic served in sub-ms</text>
+    </g>
+
+    <!-- Data Flow Arrows & Diagram -->
+    <g transform=translate(20, 280)>
+      <rect width=590 height=230 rx=6 fill=#0f172a stroke=#334155/>
+      <text x=295 y=25 text-anchor=middle font-size=12 font-weight=700 fill=#fde68a>Read &amp; Write Life Cycle</text>
+
+      <!-- Step 1 Create -->
+      <text x=20 y=55 font-size=11 font-weight=700 fill=#38bdf8>1. Shorten Flow:</text>
+      <text x=20 y=73 font-size=10 fill=#cbd5e1>Client -&gt; RateLimitInterceptor -&gt; UrlController -&gt; UrlService</text>
+      <text x=20 y=89 font-size=10 fill=#94a3b8>Check if creator already has URL -&gt; Generate 8-char key -&gt; Save MySQL</text>
+
+      <!-- Step 2 Read -->
+      <text x=20 y=120 font-size=11 font-weight=700 fill=#34d399>2. Redirection Flow:</text>
+      <text x=20 y=138 font-size=10 fill=#cbd5e1>Client requests GET /{short-url}</text>
+      <text x=20 y=154 font-size=10 fill=#38bdf8>[Cache Hit] Redis url:{shortUrl} -&gt; INCR visits:{shortUrl} -&gt; 302 Found</text>
+      <text x=20 y=170 font-size=10 fill=#fbbf24>[Cache Miss] Fetch MySQL -&gt; Populate Redis (24h) -&gt; INCR visits -&gt; 302 Found</text>
+      <text x=20 y=186 font-size=10 fill=#f43f5e>[Not Found] Throw UrlNotFoundException -&gt; 404 JSON</text>
+    </g>
+
+    <!-- Scheduled Tasks Box -->
+    <g transform=translate(20, 530)>
+      <rect width=590 height=110 rx=6 fill=#0f172a stroke=#c084fc stroke-width=1.2/>
+      <text x=295 y=24 text-anchor=middle font-size=12 font-weight=700 fill=#c084fc>Write-Behind Analytics (VisitsFlushScheduler)</text>
+      <text x=20 y=50 font-size=11 fill=#cbd5e1>&#8226; Cron / Fixed-Rate Job runs every 60,000ms (1 minute)</text>
+      <text x=20 y=70 font-size=11 fill=#cbd5e1>&#8226; Scans isits:* keys in Redis and performs atomic getAndDelete</text>
+      <text x=20 y=90 font-size=11 fill=#cbd5e1>&#8226; Batches pending click counts to MySQL in one operation, completely sparing write IOPS</text>
+    </g>
+  </g>
+</svg>
